@@ -40,4 +40,3 @@ Fibaro NC+
 -- Możesz potem definiować własną listę ulubionych kanałów 
 -- poprzez dodawanie kolejnych przycisków (za przykładowym
 -- Discovery na końcu).
-
