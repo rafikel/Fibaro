@@ -1,87 +1,52 @@
--- WERSJA ROBOCZA
--- 1.1
+--[[INFO
 
+  NC_PLUS_LUA
+  VERSION 0.1
 
--- FIBARO HC2 + DEKODER TELEWIZJI NC PLUS
--- http://fibaro.rafikel.pl (2013-2014)
+  fibaro.bialykosciol.pl
 
--- Skrypt LUA urządzenia wirtualnego Fibaro oraz centralki 
--- HC2, który całkowicie automatycznie utworzy i skonfiguruje 
--- urządzenie wirtualne w centralce do obsługi dekodera 
--- telewizji NC Plus (dekodyry MediaBox)!
+  Jeśli powielasz/zmieniasz/dostosowujesz
+  ten skrypt, zachowaj informacje o autorze.
 
--- Potrzebne: 
--- 1. Twoja nazwa urządzenia (np. Dekoder NC+). 
--- 2. Adres IP oraz port (najpewniej 8080) dekodera. 
--- 3. Hasło i login do centralki podane na początku skryptu. 
-
--- Co skrypt zrobi: 
--- 1. Znajdzie dekoder pod podanym adresem i pobierze z niego 
---    wszelkie potrzebne dane.
--- 2. Przygotuje pełen zestaw przycisków, które będa dostępne
---    w interfejsie użytkownika oraz scenach blokowych.
--- 3. Pobierze z serwera fibaro.bialykosciol.pl i wgra do 
---    centralki zestaw ikonek graficznych dla urządzenia.
--- 4. Utworzy zmienna globalną, która odzwierciedlać będzie 
---    stan dekodera (nazwa zmiennej na podstawie podanej nazwy 
---    urządzenia wirtualnego).
--- 5. W pełni umożliwi na sterowanie i odczytywanie stanu 
---    dekodera z poziomu scen blokowych. 
-
--- Instrukcja: 
--- 1. Utwórz nowe urządzenie wirtualne. 
--- 2. Podaj swoją nazwę (np. "Dekoder NC+") oraz adres IP 
---    i port TCP dekodera (najpewniej 8080).
--- 3. Wklej zawartość skryptu do głównej pętli.
--- 4. Zapisz urządzenie wirtualne i poczekaj około minuty, 
---    możesz obserwować postęp w "debugu".
--- 5. Jeśli wszystko poszło ok, odświeżając stronę zobaczysz 
---    gotowe urządzenie do sterowania!
-
--- Możesz potem definiować własną listę ulubionych kanałów 
--- poprzez dodawanie kolejnych przycisków (za przykładowym
--- Discovery na końcu).
-
--- DANE LOGOWANIA DO CENTRALKI
--- Te dane są obowiązkowe! Zapewniają poprawną pracę skryptu!
--- Skrypt tworzy i dostosowuje zawartość urządzenia wirtualnego
--- dla swoich potrzeb - przyciski, zmienne globalne, ikonki...
--- Aby mieć taką możliwość, potrzebuje pełnego dostępu do HC2!
-USER = "admin" 
-PASSWORD = "admin"
-
--- AUTO_UPDATE = 0 | 1 [Domyślnie = 1]
--- Ustawienia automatycznej aktualizacji skryptu - zezwala na 
--- automatyczne pobieranie nowych wersji skryptu z serwera
--- fibaro.rafikel.pl. Skrypt nie wysyła żadnych danych, jedynie
--- odczytuje plik na serwerze i w razie potrzeby podmienia swoją
--- zawartość na nową. Konfiguracja użytkownika nie jest nadpisywana. 
-AUTO_UPDATE = 1
-
--- PROBE_AT_START = 0 | 1 [Domyślnie = 1]
--- Sprawdzanie stanu włączenia dekodera przy uruchomieniu
--- skryptu. Jest to zrealizowane poprzez wybranie przycisków
--- Prog+ i Prog-, co pozwola na odebranie stanu z dekodera.
-PROBE_AT_START = 1
-
--- WAIT_TIME_AFTER_CHANGES = 0..60 [Domyślnie = 30]
--- Czas w sekundach zanim skrypt wystartuje ponownie po każdym 
--- etapie autokonfiguracji lub inicjalizacji. Do normalnej 
--- pracy wystarczy 5 sekund, lub mniej. Na początku pozostaw
--- jednak 30 sekund i upewnij się, że wszystko działa!
-WAIT_TIME_AFTER_CHANGES = 30
-
--- KONIEC KONFIGURACJI UŻYTKOWNIKA!
--- Poniżej znajduje się już tylko kod, który wykonuje wszystko
--- automatycznie, bez potrzeby wgłębiania się w jego strukturę.
--- Jeśli jednak czujesz się na siłach i chciałbyś go wykorzystać,
--- zmienić lub dostosować do własnych potrzeb, bardzo Cię proszę
--- o udostępnienie tych zmian dla innych użytkowników!
-
---[[START 
-  NC_PLUS_1_0 
-  pl.rafikel.fibaro.ncplus
 ]]
+
+-- HC2 CREDENTIALS
+local user = "admin";
+local password = "admin";
+
+-- PREPARE ICONS
+-- automatic by downloading
+-- from external server (fibaro.bialykosciol.pl)
+local prepareIcons = true;
+
+-- CHECK STATE
+-- set to nil 
+-- if you want to skip 
+-- check device status 
+-- with prog+ and prog-
+local checkAtStart = true;
+
+-- WAIT BEFORE RESET
+-- milesconds wait time 
+-- after make changes by script 
+-- before reload script
+local wait = 3000;
+
+-- END OF CONFIGURATION
+-- DO NOT CHANGE CODE BELOW
+-- IF YOU DON'T KNOW WHAT TO DO!
+
+
+
+
+
+
+
+--[[
+  INIT FUNCTIONS
+]]--
+local DetectionString = "fibaro.lua.ncplus.0.1";
+if (not wait or not tonumber(wait)) then wait = 60000 end
 
 --[[
   EXTRA FUNCTIONS
@@ -94,49 +59,6 @@ function bxor(a, b) r = 0; for i = 0, 31 do x = a / 2 + b / 2; if (x~=math.floor
 function checkSum(t) c = 0; for i = 1, #t do b = string.byte(t, i); if (c==0) then c = b; else c = bxor(c, b); end if (i>100) then break; end end return c; end
 -- encoding to base64 
 function encode(data) local b='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/' return((data:gsub('.',function(x) local r,b='',x:byte() for i=8,1,-1 do r=r..(b%2^i-b%2^(i-1)>0 and '1' or '0')end return r end)..'0000'):gsub('%d%d%d?%d?%d?%d?',function(x) if(#x<6) then return('') end local c=0 for i=1,6 do c=c+(x:sub(i,i)=='1' and 2^(6-i) or 0) end return b:sub(c+1,c+1) end)..({'','==','='})[#data%3+1]) end 
-
---[[
-  SHOW DIALOG AND WAIT FOR BUTTON
-]]--
-function confirmAction(question, scriptName)
-  fibaro:debug("QUESTION: " .. question);
-  i = 100; id = 0; nums = 0;
-  local devices = {};
-  while (i>0) do
-    id = id + 1;
-    t = fibaro:getType(id);
-    if (t and #t>0) then
-      i = 100;
-      if (t=="virtual_device") then
-        nums = nums + 1;
-        devices[nums] = id;
-      end
-    end
-    i = i - 1;
-  end
-  local time = 0;
-  while (1) do
-    if (os.time()-time>2) then
-      fibaro:log(question);
-      time = os.time();
-    end
-    fibaro:sleep(100);
-    for i, id in pairs(devices) do
-      t = fibaro:getType(id);
-      if (t and t=="virtual_device") then
-        log, ts = fibaro:get(id, "log");
-        if (#log>1 and ts==os.time()) then
-          script, action, value = string.match(log, "<lua script=\"(.*)\" action=\"(.*)\">(.*)</lua>");
-          if (value and scriptName==script) then
-            fibaro:log(value);
-            fibaro:debug("ANSWER: [" .. id .. "] " ..  action .. " [" .. value .. "]");
-            return id, action, value;
-          end
-        end
-      end
-    end
-  end
-end
 
 --[[
   READ THIS VIRTUAL DEVICE (id, ip, port)
@@ -160,7 +82,7 @@ function readVirtualDevice(tcp)
       -- fibaro:debug('Virtual Device Id [' .. virtualData.id .. ']');
       -- if virtual device type and name is right?
       if (virtualData.type=="virtual_device") then
-        check = string.find(virtualData.properties.mainLoop, "NC_PLUS_SCR");
+        check = string.find(virtualData.properties.mainLoop, DetectionString);
         if (check and check>0) then
           id = virtualData.id;
           ip = virtualData.properties.ip;
@@ -252,7 +174,7 @@ function uploadIcon(login, pass, rawIcon)
   tcp:write("POST /api/icons HTTP/1.1" .. enter);
   tcp:write("Host: localhost" .. enter);
   tcp:write("Content-Length: " .. string.len(content) .. enter);
-  tcp:write("Authorization: Basic " .. encode(USER..":"..PASSWORD) .. enter);
+  tcp:write("Authorization: Basic " .. encode(user..":"..password) .. enter);
   tcp:write("Content-Type: multipart/form-data; boundary=----" .. boundary .. enter .. enter);
   --fibaro:debug("Sending " .. #content .. " content bytes..." .. enter);
   s = 0; for i = 1, #content do
@@ -371,10 +293,10 @@ function prepareVirtualDevice(tcp, id, mainIcon)
       -- finishing
       fibaro:debug("---");
       fibaro:debug("NEW CONFIGURATION READY TO SAVE!");
-      fibaro:debug("New session should start in a moment...");
+      fibaro:debug("New session should start in " .. (wait/1000) .. " sec.");
       fibaro:debug("Refresh web page after complete!");
       fibaro:debug("WAITING FOR COMPLETE...");
-      fibaro:sleep(WAIT_TIME_AFTER_CHANGES * 1000);
+      fibaro:sleep(wait);
       fibaro:debug("...");
       -- put to HC2
       response, status, errorCode = tcp:PUT("/api/virtualDevices", toPut);
@@ -521,7 +443,7 @@ if (not tcpHC2) then
 end
 
 -- authentication for HC2
-tcpHC2:setBasicAuthentication(USER, PASSWORD);
+tcpHC2:setBasicAuthentication(user, password);
 
 -- ICONS
 local iconON = 0;
@@ -561,8 +483,7 @@ else
 end
 
 -- CHECK ICONS
-id, a, v = confirmAction("BRAK IKONEK! Załadować domyślne z serwera?", "nc_plus");
-if (a=="on") then
+if (prepareIcons) then
   -- prepare icons
   fibaro:debug("PREPARING ICONS...");
   -- get icons from fibaro.bialykosciol.pl
@@ -773,7 +694,7 @@ fibaro:debug("STARTING MAIN LOOP...");
 setState(0, "START...");
 
 -- if connection, send Prog+ and Prog-
-if (tcpNC and PROBE_AT_START==1) then
+if (tcpNC and checkAtStart) then
   fibaro:debug("CHECK STATE...");
   sendKey(402);
   fibaro:sleep(600);
@@ -969,10 +890,5 @@ tcpNC:disconnect();
 -- SET ERROR STATE
 setState(-1, "ERROR!");
 
--- WAIT BEFORE NEXT RUN
-fibaro:sleep(WAIT_TIME_AFTER_CHANGES * 1000);
-
---[[END
-  NC_PLUS_1_0 
-  pl.rafikel.fibaro.ncplus
-]]
+-- WAIT 1 MINUTE BEFORE NEXT RUN
+fibaro:sleep(60000);

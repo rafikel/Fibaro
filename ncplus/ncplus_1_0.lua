@@ -77,7 +77,7 @@ WAIT_TIME_AFTER_CHANGES = 30
 --[[NC_PLUS
   pl.rafikel.fibaro.ncplus
 ]]
-VERSION = "{1_0_0}"
+VERSION = "{1_0_2}"
 
 --[[
   EXTRA FUNCTIONS
@@ -543,7 +543,7 @@ function setState(state, description)
   -- change state?
   if (state and tonumber(state)) then
     state = tonumber(state);
-  else
+  elseif (globalName) then
     state = fibaro:getGlobalValue(globalName);
     if (state and tonumber(state)) then
       state = tonumber(state);
@@ -624,25 +624,6 @@ if (virtualId) then
   end
 else
   setState(-1, "ERROR! LOGIN/PASSWORD?");
-  fibaro:abort();
-end
-
--- connection to NC+
-fibaro:debug("CONNECTING TO NC+ [" .. virtualIP .. ":" .. virtualPort .. "]...");
-local tcpNC = Net.FTcpSocket(virtualIP, virtualPort);
-if (not tcpNC) then
-  setState(-1, "NC+ CONNECTING ERROR!");
-  fibaro:abort();
-end
--- getting UUID of NC+
-fibaro:debug("Looking for device at this address...");
-uuid = getUID(tcpNC, virtualIP, virtualPort);
-if (uuid) then
-  boxId = "uuid_" .. uuid;
-  fibaro:debug("Found UUID: " .. boxId);
-  fibaro:debug("---");
-else
-  setState(-1, "NC+ NOT FOUND! CHECK IP AND PORT!");
   fibaro:abort();
 end
 
@@ -776,7 +757,29 @@ else
 end
 
 
+  
+-- connection to NC+
+fibaro:debug("CONNECTING TO NC+ [" .. virtualIP .. ":" .. virtualPort .. "]...");
+local tcpNC = Net.FTcpSocket(virtualIP, virtualPort);
+if (not tcpNC) then
+  setState(-1, "NC+ CONNECTING ERROR!");
+  fibaro:abort();
+end
 
+-- getting UUID of NC+
+fibaro:debug("Looking for device at this address...");
+uuid = getUID(tcpNC, virtualIP, virtualPort);
+if (uuid) then
+  boxId = "uuid_" .. uuid;
+  fibaro:debug("Found UUID: " .. boxId);
+  fibaro:debug("---");
+else
+  setState(-1, "NC+ NOT FOUND! CHECK IP AND PORT!");
+  fibaro:abort();
+end
+
+  
+  
 --[[
   MAIN LOOP 
   IF EVERYTHING 
@@ -805,7 +808,7 @@ local digitCode = {[0]=11, [1]=2, [2]=3, [3]=4, [4]=5, [5]=6, [6]=7, [7]=8, [8]=
   SEND KEY DOWN AND UP
 ]]--
 function sendKey(key)
-  fibaro:log("Key down... " .. key);
+  fibaro:debug("Key down... " .. key);
   upnpReqest(tcpNC, virtualIP, virtualPort,
     "/upnpfun/ctrl/" .. boxId .. "/04",
     "adbglobal.com",
@@ -814,7 +817,7 @@ function sendKey(key)
     "<InputEvent>ev=keydn,code=" .. key .. "</InputEvent>"
   );
   fibaro:sleep(100);
-  fibaro:log("Key up... " .. key);
+  fibaro:debug("Key up... " .. key);
   upnpReqest(tcpNC, virtualIP, virtualPort,
     "/upnpfun/ctrl/" .. boxId .. "/04",
     "adbglobal.com",
