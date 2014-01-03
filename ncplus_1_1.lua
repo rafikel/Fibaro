@@ -1,3 +1,7 @@
+-- WERSJA ROBOCZA
+-- 1.1
+
+
 -- FIBARO HC2 + DEKODER TELEWIZJI NC PLUS
 -- http://fibaro.rafikel.pl (2013-2014)
 
