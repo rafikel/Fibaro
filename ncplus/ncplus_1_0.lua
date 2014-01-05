@@ -9,7 +9,7 @@
 -- Potrzebne: 
 -- 1. Twoja nazwa urządzenia (np. Dekoder NC+). 
 -- 2. Adres IP oraz port (najpewniej 8080) dekodera. 
--- 3. Hasło i login do centralki podane na początku skryptu. 
+-- 3. Hasło i login do centralki podane w treści skryptu.
 
 -- Co skrypt zrobi: 
 -- 1. Znajdzie dekoder pod podanym adresem i pobierze z niego 
@@ -76,8 +76,25 @@ WAIT_TIME_AFTER_CHANGES = 30
 
 --[[NC_PLUS
   pl.rafikel.fibaro.ncplus
-]]
-VERSION = "{1_0_2}"
+]]--
+
+VERSION = "{1_0_3}"
+
+--[[
+  HISTORY
+  
+  1.0.3
+  - fixed restart problem.
+  
+  1.0.2
+  - changed order of inicjalization procudere.
+  
+  1.0.1
+  - fixed communication problem with NC.
+  
+]]--
+
+
 
 --[[
   EXTRA FUNCTIONS
@@ -781,9 +798,7 @@ end
   
   
 --[[
-  MAIN LOOP 
-  IF EVERYTHING 
-  IS OK
+  PREPARE FOR MAIN LOOP
 ]]--
 
 -- variables for main loop
@@ -1031,15 +1046,8 @@ while (tcpNC) do
 end 
 -- END MAIN LOOP
 
--- RESTARTING
-fibaro:debug("RESTARTING...");
-  
--- DISCONNECT ALL SOCKETS
-tcpHC2:disconnect();
-tcpNC:disconnect();
-
 -- SET ERROR STATE
-setState(-1, "ERROR!");
+setState(-1, "RESTARTING...");
 
 -- WAIT BEFORE NEXT RUN
 fibaro:sleep(WAIT_TIME_AFTER_CHANGES * 1000);
