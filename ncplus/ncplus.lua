@@ -60,7 +60,7 @@ AUTO_UPDATE = 1
 -- Prog+ i Prog-, co pozwola na odebranie stanu z dekodera.
 PROBE_AT_START = 1
 
--- WAIT_TIME_AFTER_CHANGES = 0..60 [Domyślnie = 30]
+-- WAIT_TIME_AFTER_CHANGES = 10..60 [Domyślnie = 30]
 -- Czas w sekundach zanim skrypt wystartuje ponownie po każdym 
 -- etapie autokonfiguracji lub inicjalizacji. Do normalnej 
 -- pracy wystarczy 5 sekund, lub mniej. Na początku pozostaw
@@ -78,11 +78,14 @@ WAIT_TIME_AFTER_CHANGES = 30
   pl.rafikel.fibaro.ncplus
 ]]--
 
-VERSION = "{1_0_3}"
+VERSION = "{1_0_4}"
 
 --[[
   HISTORY
   
+  1.0.4
+  - automatic reconnect to NC.
+
   1.0.3
   - fixed restart problem.
   
@@ -543,15 +546,10 @@ local iconERR = 0;
 function setState(state, description)
   -- print description
   if (description) then
-  	if (state==-1) then 
-  	  p = "";
-  	else
-      p = "NC+ ";
-    end
     -- debug
-    fibaro:debug(p .. description);
+    fibaro:debug(description);
     -- log on home screen
-    fibaro:log(p .. description);
+    fibaro:log(description);
     -- state label
     if (virtualId and virtualId>0) then
 	    fibaro:call(virtualId, "setProperty", "ui.State.value",  description);
@@ -592,14 +590,8 @@ function setState(state, description)
   end
 end
 
-
-
---[[
-	INITIALIZATION
-]]--
-
--- starting
-fibaro:debug("RUNING...");
+-- starting setup
+setState(0, "SETUP...");
 
 -- connect to HC2
 fibaro:debug("Connecting to HC2...");
@@ -629,7 +621,6 @@ if (virtualId) then
   if (virtualIP and virtualPort) then
     fibaro:debug('IP [' .. virtualIP .. ']');
     fibaro:debug('Port [' .. virtualPort .. ']');
-    fibaro:debug('---');
   else
     if (not virtualIP) then
       setState(-1, 'NO IP!');
@@ -652,7 +643,8 @@ local keyAtIcon = {};
 local channelAtIcon = {};
 
 -- CHECK SERVER
-fibaro:debug("COMPARE WITH SERVER...");
+fibaro:debug("---");
+setState(0, "CHECKING SERVER...");
 
 -- connect to server
 fibaro:debug("Connecting to [fibaro.rafikel.pl]...");
@@ -660,7 +652,7 @@ local tcpSERVER = Net.FHttp("fibaro.rafikel.pl", 80);
 if (not tcpSERVER) then
   fibaro:debug("SERVER ERROR! Skipping...");
 else
-
+  fibaro:debug("---");
   fibaro:debug("CHECKING FOR UPDATES...");
   size, content  = getFileFromServer(tcpSERVER, "/lua/ncplus.lua");
   if (size>0) then
@@ -678,7 +670,6 @@ else
         fibaro:debug("NEW VERSION AVAILABLE!");
         if (AUTO_UPDATE==1) then
           fibaro:debug("REPLACING SCRIPT...");
-          --setVDeviceParam(tcpHC2, virtualId, "mainLoop", "...");
           content = string.gsub(content, 'USER = "admin"', 'USER = "' .. USER .. '"');
           content = string.gsub(content, 'PASSWORD = "admin"', 'PASSWORD = "' .. PASSWORD .. '"');
           content = string.gsub(content, 'AUTO_UPDATE = 1', 'AUTO_UPDATE = ' .. AUTO_UPDATE);
@@ -694,9 +685,9 @@ else
   else
     fibaro:debug("Connection problem! Skipping auto-update...");
   end
-  fibaro:debug("---");
 
   -- get icons from fibaro.rafikel.pl
+  fibaro:debug("---");
   fibaro:debug("CHECKING ICONS...");
 
   -- ON icon
@@ -744,62 +735,43 @@ else
     end
   end
 
-  fibaro:debug("---");
-
 end
 
+-- PREPARE VIRTUAL
+fibaro:debug("---");
+setState(0, "PREPARE VIRTUAL...");
 
-
--- GLOBAL VARIABLE
-fibaro:debug("PREPARE VARIABLES...");
+-- Global variable
 fibaro:debug("Creating global variable base on [" .. virtualName .. "]...");
 local globalName = prepareGlobal(tcpHC2, virtualName);
 if (globalName) then
   fibaro:debug("Global variable [" .. globalName .. "] is OK.");
-  fibaro:debug("---");
 else
   setState(-1, "ERROR CREATING GLOBAL!");
   fibaro:abort();
 end
 
--- THIS VIRTUAL DEVICE
-fibaro:debug("PREPARING VIRTUAL DEVICE [" .. virtualId .. "]...");
+-- Buttons
+fibaro:debug("Prepare buttons on virtual device [" .. virtualId .. "]...");
 ready, buttonAtIcon, keyAtIcon, channelAtIcon = prepareVirtualDevice(tcpHC2, virtualId, iconON);
 if (ready and tonumber(ready)) then
   fibaro:debug("All buttons [" .. ready .. "] prepared and ready!");
-  fibaro:debug("---");
 else
   setState(-1, "ERROR IN VIRTUAL DEVICE!");
   fibaro:abort();
 end
 
+-- FINISH PREPARE
+fibaro:debug("---");
 
-  
--- connection to NC+
-fibaro:debug("CONNECTING TO NC+ [" .. virtualIP .. ":" .. virtualPort .. "]...");
-local tcpNC = Net.FTcpSocket(virtualIP, virtualPort);
-if (not tcpNC) then
-  setState(-1, "NC+ CONNECTING ERROR!");
-  fibaro:abort();
-end
 
--- getting UUID of NC+
-fibaro:debug("Looking for device at this address...");
-uuid = getUID(tcpNC, virtualIP, virtualPort);
-if (uuid) then
-  boxId = "uuid_" .. uuid;
-  fibaro:debug("Found UUID: " .. boxId);
-  fibaro:debug("---");
-else
-  setState(-1, "NC+ NOT FOUND! CHECK IP AND PORT!");
-  fibaro:abort();
-end
 
-  
-  
 --[[
   PREPARE FOR MAIN LOOP
 ]]--
+
+-- connection resource
+local tcpNC;
 
 -- variables for main loop
 local counter = 0;
@@ -844,32 +816,65 @@ function sendKey(key)
 end
 
 
+--[[
+  CONNECTION LOOP
+]]--
+while (not tcpNC) do
+
+  -- repeat until no connection
+  setState(0, "SEARCHING NC+...");
+
+  -- connection to NC+
+  fibaro:debug("Connecting to NC+ [" .. virtualIP .. ":" .. virtualPort .. "]...");
+  http = Net.FHttp(virtualIP, virtualPort);
+  r, s, e = http:GET("/upnpdev/");
+  if (e==0) then
+    fibaro:debug("Looking for device at this address...");
+    tcpNC = Net.FTcpSocket(virtualIP, virtualPort);
+  end
+  if (not tcpNC) then
+    setState(-1, "CONNECTING ERROR!");
+    fibaro:sleep(WAIT_TIME_AFTER_CHANGES * 1000);
+  else
+    -- getting UUID of NC+
+    fibaro:debug("Reqesting for UUID...");
+    uuid = getUID(tcpNC, virtualIP, virtualPort);
+    if (uuid) then
+      boxId = "uuid_" .. uuid;
+      fibaro:debug("Found UUID: " .. boxId);
+      fibaro:debug("---");
+    else
+      tcpNC = nil;
+      setState(-1, "CHECK IP AND PORT!");
+      fibaro:sleep(WAIT_TIME_AFTER_CHANGES * 1000);
+    end
+  end
+end
+-- END CONNECTION LOOP
+
 
 
 --[[
   MAIN LOOP
 ]]--
 
--- starting
-fibaro:debug("STARTING MAIN LOOP...");
-
 -- off state at start
-setState(0, "START...");
-
+setState(0, "STARTING...");
+  
 -- if connection, send Prog+ and Prog-
-if (tcpNC and PROBE_AT_START==1) then
-  fibaro:debug("CHECK STATE...");
+if (PROBE_AT_START==1) then
+  fibaro:debug("Checking NC+ state...");
   sendKey(402);
   fibaro:sleep(600);
   sendKey(403);
 end
-
+  
 -- start info
-fibaro:debug("SYSTEM READY!");
+setState(0, "READY!");
 
 -- main loop while connection is good
 while (tcpNC) do
-    
+
   -- if key was sended
   if (keyToSend and tonumber(keyToSend) and tonumber(keyToSend)>=0) then
     fibaro:debug("Key " .. keyToSend .. " OK");
