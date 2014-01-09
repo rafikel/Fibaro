@@ -1,4 +1,4 @@
-fibaro
-======
+Fibaro Scripts
+==============
 
-Fibaro scripts
+All scripts are free!
