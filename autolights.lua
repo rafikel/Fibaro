@@ -1,6 +1,6 @@
 -- Script for automation lights in home 
 -- by Fibaro Bialy Kosciol 
--- version 1.1, XII, 2013
+-- version 1.2, I, 2014
 
 -- TODO:
 -- dodać możliwość osobnego poziomu sciemniania dla manualnego wlaczania
@@ -193,6 +193,12 @@ while (tonumber(status)==200) do
               elseif (sliderParams.defaultTime and deviceValue>oldValues[deviceId]) then 
                 -- set slider value to defined time 
                 sliderValue = sliderParams.defaultTime;
+                -- if default starting value for dimmer device is defined? 
+                if (sliderParams.defaultValue) then 
+                  -- use maximum of defined dimmer value
+                  deviceValue = tonumber(sliderParams.defaultValue);
+                  fibaro:call(deviceId, 'setValue', deviceValue);
+                end 
                 -- log to home screen 
                 fibaro:log(sliderData.caption .. ' Manual ON [' .. deviceValue .. ']!');
               -- end 
