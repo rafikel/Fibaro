@@ -78,11 +78,15 @@ WAIT_TIME_AFTER_CHANGES = 30
   pl.rafikel.fibaro.ncplus
 ]]--
 
-VERSION = "{1_0_4}"
+VERSION = "{1_0_9}"
 
 --[[
   HISTORY
   
+  1.0.9
+  - optimalize script and prepare functions 
+    for usage in another scripts.
+
   1.0.4
   - automatic reconnect to NC.
 
@@ -414,8 +418,6 @@ function setVDeviceParam(tcp, id, key, value)
   return false;
 end
 
-
-
 --[[
   PREPARE GLOBAL VARIABLE
 ]]--
@@ -446,77 +448,8 @@ function prepareGlobal(tcp, name)
   end
 end
 
---[[
-	FIND DECODER UUID
-]]--
-function getUID(tcpSocket, ip, port)
-  tcpSocket:write("GET /upnpdev/ HTTP/1.1\n");
-  tcpSocket:write("HOST: " .. ip .. ":" .. port .. "\n");
-  tcpSocket:write("\n");
-  fibaro:sleep(100);
-  result, err = tcpSocket:read();
-  --fibaro:debug("E: " .. err);
-  if (err==0) then
-    --fibaro:debug("R: " .. string.sub(result, 10, 13));
-    start = string.find(result,  "li>uuid:");
-    --fibaro:debug("S: " .. start);
-    finish = string.find(result, "li>urn:");
-    --fibaro:debug("F: " .. finish);
-    if (start and finish and start>0 and finish>0 and finish>start) then
-      data = string.sub(result, (start + 8), (finish - 6));
-      return data;
-    else
-      return nil;
-    end
-  else
-    return nil;
-  end
-end
 
---[[
-	SEND UPNP REQEST
-]]--
-function upnpReqest(tcpSocket, ip, port, upnpUrl, upnpDomain, upnpService, upnpFunction, upnpContent)
-  --fibaro:debug("POST " .. upnpUrl);
-  reqest = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n";
-  reqest = reqest .. "<s:Envelope";
-  reqest = reqest .. " s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"";
-  reqest = reqest .. " xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\">\n";
-  reqest = reqest .. "<s:Body>\n";
-  reqest = reqest .. "<u:" .. upnpFunction .. " ";
-  reqest = reqest .. "xmlns:u=\"urn:" .. upnpDomain;
-  reqest = reqest .. ":service:" .. upnpService .. "\">";
-  reqest = reqest .. upnpContent;
-  reqest = reqest .. "</u:" .. upnpFunction .. ">\n";
-  reqest = reqest .. "</s:Body>\n";
-  reqest = reqest .. "</s:Envelope>";
-  --fibaro:debug("S: " .. string.len(reqest) .. "\n");
-  tcpSocket:write("POST " .. upnpUrl .. " HTTP/1.1\n");
-  tcpSocket:write("SOAPACTION: \"urn:" .. upnpDomain);
-  tcpSocket:write(":service:" .. upnpService .. "#" .. upnpFunction);
-  tcpSocket:write("\"\n");
-  tcpSocket:write("Content-Length: " .. string.len(reqest) .. "\n");
-  tcpSocket:write("CONTENT-TYPE: text/xml; charset=\"utf-8\"\n");
-  tcpSocket:write("HOST: " .. ip .. ":" .. port .. "\n");
-  tcpSocket:write("\n");
-  tcpSocket:write(reqest);
-  fibaro:sleep(100);
-  result, err = tcpSocket:read();
-  --fibaro:debug("R: " .. string.len(result));
-  if (err==0) then
-    start = string.find(result, upnpService .. "\">");
-    finish = string.find(result, "</u:" .. upnpFunction);
-    if (start and finish and start>0 and finish>0 and finish>start) then
-      data = string.sub(result, (start + string.len(upnpService) + 2), (finish - 1));
-      --fibaro:debug("D: " .. data);
-      return data;
-    else
-      return 0;
-    end
-  else
-    return nil;
-  end
-end
+
 
 
 
@@ -537,8 +470,6 @@ local boxId = nil;
 local iconON = 0;
 local iconOFF = 0;
 local iconERR = 0;
-
-
 
 --[[
   STATUS
@@ -766,12 +697,15 @@ fibaro:debug("---");
 
 
 
+
+
+
 --[[
   PREPARE FOR MAIN LOOP
 ]]--
 
 -- connection resource
-local tcpNC;
+local tcpDEVICE;
 
 -- variables for main loop
 local counter = 0;
@@ -792,11 +726,56 @@ local digitToSend = 0;
 local digitCode = {[0]=11, [1]=2, [2]=3, [3]=4, [4]=5, [5]=6, [6]=7, [7]=8, [8]=9, [9]=10};
 
 --[[
+	SEND UPNP REQEST
+]]--
+function upnpReqest(tcpSocket, ip, port, upnpUrl, upnpDomain, upnpService, upnpFunction, upnpContent)
+  --fibaro:debug("POST " .. upnpUrl);
+  reqest = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n";
+  reqest = reqest .. "<s:Envelope";
+  reqest = reqest .. " s:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\"";
+  reqest = reqest .. " xmlns:s=\"http://schemas.xmlsoap.org/soap/envelope/\">\n";
+  reqest = reqest .. "<s:Body>\n";
+  reqest = reqest .. "<u:" .. upnpFunction .. " ";
+  reqest = reqest .. "xmlns:u=\"urn:" .. upnpDomain;
+  reqest = reqest .. ":service:" .. upnpService .. "\">";
+  reqest = reqest .. upnpContent;
+  reqest = reqest .. "</u:" .. upnpFunction .. ">\n";
+  reqest = reqest .. "</s:Body>\n";
+  reqest = reqest .. "</s:Envelope>";
+  --fibaro:debug("S: " .. string.len(reqest) .. "\n");
+  tcpSocket:write("POST " .. upnpUrl .. " HTTP/1.1\n");
+  tcpSocket:write("SOAPACTION: \"urn:" .. upnpDomain);
+  tcpSocket:write(":service:" .. upnpService .. "#" .. upnpFunction);
+  tcpSocket:write("\"\n");
+  tcpSocket:write("Content-Length: " .. string.len(reqest) .. "\n");
+  tcpSocket:write("CONTENT-TYPE: text/xml; charset=\"utf-8\"\n");
+  tcpSocket:write("HOST: " .. ip .. ":" .. port .. "\n");
+  tcpSocket:write("\n");
+  tcpSocket:write(reqest);
+  fibaro:sleep(100);
+  result, err = tcpSocket:read();
+  --fibaro:debug("R: " .. string.len(result));
+  if (err==0) then
+    start = string.find(result, upnpService .. "\">");
+    finish = string.find(result, "</u:" .. upnpFunction);
+    if (start and finish and start>0 and finish>0 and finish>start) then
+      data = string.sub(result, (start + string.len(upnpService) + 2), (finish - 1));
+      --fibaro:debug("D: " .. data);
+      return data;
+    else
+      return 0;
+    end
+  else
+    return nil;
+  end
+end
+
+--[[
   SEND KEY DOWN AND UP
 ]]--
 function sendKey(key)
   fibaro:debug("Key down... " .. key);
-  upnpReqest(tcpNC, virtualIP, virtualPort,
+  upnpReqest(tcpDEVICE, virtualIP, virtualPort,
     "/upnpfun/ctrl/" .. boxId .. "/04",
     "adbglobal.com",
     "X_ADB_RemoteControl:1",
@@ -805,7 +784,7 @@ function sendKey(key)
   );
   fibaro:sleep(100);
   fibaro:debug("Key up... " .. key);
-  upnpReqest(tcpNC, virtualIP, virtualPort,
+  upnpReqest(tcpDEVICE, virtualIP, virtualPort,
     "/upnpfun/ctrl/" .. boxId .. "/04",
     "adbglobal.com",
     "X_ADB_RemoteControl:1",
@@ -816,53 +795,66 @@ function sendKey(key)
 end
 
 
+
 --[[
   CONNECTION LOOP
 ]]--
-while (not tcpNC) do
+while (not tcpDEVICE) do
 
   -- repeat until no connection
   setState(0, "SEARCHING NC+...");
 
   -- connection to NC+
-  fibaro:debug("Connecting to NC+ [" .. virtualIP .. ":" .. virtualPort .. "]...");
+  fibaro:debug("Getting NC+ info [" .. virtualIP .. ":" .. virtualPort .. "]...");
   http = Net.FHttp(virtualIP, virtualPort);
-  r, s, e = http:GET("/upnpdev/");
-  if (e==0) then
-    fibaro:debug("Looking for device at this address...");
-    tcpNC = Net.FTcpSocket(virtualIP, virtualPort);
+  result, state, err = http:GET("/upnpdev/");
+  if (err==0) then
+
+    -- getting UUID of NC+
+    fibaro:debug("Reading UUID...");
+    --fibaro:debug("R: " .. string.sub(result, 10, 13));
+    start = string.find(result,  "li>uuid:");
+    fibaro:debug("S: " .. start);
+    finish = string.find(result, "li>urn:");
+    fibaro:debug("F: " .. finish);
+    if (start and finish and start>0 and finish>0 and finish>start) then
+      boxId = "uuid_" .. string.sub(result, (start + 8), (finish - 6));
+      fibaro:debug("Found UUID: " .. boxId);
+      tcpDEVICE = Net.FTcpSocket(virtualIP, virtualPort);
+    else
+      setState(-1, "CHECK IP AND PORT!");
+      fibaro:abort();
+    end
+    
   end
-  if (not tcpNC) then
+
+  if (not tcpDEVICE) then
     setState(-1, "CONNECTING ERROR!");
     fibaro:sleep(WAIT_TIME_AFTER_CHANGES * 1000);
-  else
-    -- getting UUID of NC+
-    fibaro:debug("Reqesting for UUID...");
-    uuid = getUID(tcpNC, virtualIP, virtualPort);
-    if (uuid) then
-      boxId = "uuid_" .. uuid;
-      fibaro:debug("Found UUID: " .. boxId);
-      fibaro:debug("---");
-    else
-      tcpNC = nil;
-      setState(-1, "CHECK IP AND PORT!");
-      fibaro:sleep(WAIT_TIME_AFTER_CHANGES * 1000);
-    end
   end
+  
 end
 -- END CONNECTION LOOP
 
-
-
+  
+  
 --[[
   MAIN LOOP
 ]]--
 
 -- off state at start
+fibaro:debug("---");
+fibaro:debug("---");
+fibaro:debug("---");
 setState(0, "STARTING...");
   
+-- set timeout for answers from device
+if (tcpDEVICE) then
+  tcpDEVICE:setReadTimeout(5000);
+end
+
 -- if connection, send Prog+ and Prog-
-if (PROBE_AT_START==1) then
+if (tcpDEVICE and PROBE_AT_START==1) then
   fibaro:debug("Checking NC+ state...");
   sendKey(402);
   fibaro:sleep(600);
@@ -873,16 +865,16 @@ end
 setState(0, "READY!");
 
 -- main loop while connection is good
-while (tcpNC) do
+while (tcpDEVICE) do
 
   -- if key was sended
   if (keyToSend and tonumber(keyToSend) and tonumber(keyToSend)>=0) then
     fibaro:debug("Key " .. keyToSend .. " OK");
     keyToSend = nil;
   end
-    
-  -- as for state id
-  response = upnpReqest(tcpNC, virtualIP, virtualPort,
+  
+  -- ask for system state id few times
+  response = upnpReqest(tcpDEVICE, virtualIP, virtualPort,
     "/upnpfun/ctrl/" .. boxId .. "/01",
     "schemas-upnp-org",
     "ContentDirectory:2",
@@ -890,14 +882,13 @@ while (tcpNC) do
     ""
   );
   
-  -- if communication lost
-  if (response==nil) then
-    setState(-1, "Disconnected!");
-    break;
-  end
-  
   -- search state id in response
-  state = string.match(response, "<Id>(.*)</Id>");
+  if (response) then
+    state = string.match(response, "<Id>(.*)</Id>");
+  else
+    setState(nil, "No answer!");
+    state = nil;
+  end
   
   -- check what to send in 1 sec. loop
   i = 100; while (i>0) do
