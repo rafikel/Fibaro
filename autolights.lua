@@ -1,25 +1,57 @@
--- Script for automation lights in home 
--- by Fibaro Bialy Kosciol 
--- version 1.2, I, 2014
+-- LIGHTS AUTOMATION
+-- LUA script by fibaro.rafikel.pl
+-- version 1.3, 2014-02-10, license GPL
+
+-- Documentations available on Fibaro forum at this topics:
+-- http://forum.fibaro.com/viewtopic.php?t=2693 (EN)
+-- http://forum.fibaro.com/viewtopic.php?t=2686 (PL)
+
+-- Access to HC2 admin account is neccessary for control 
+-- virtual device in non standard way. Enter user/password:
+USER = "admin"
+PASSWORD = "admin"
+
+-- FUTURES:
+-- Automatic switching off lights after counting time.
+-- Extension of light time based on events (eg move, doors, etc.). 
+-- Without interfering with the manual control.
+-- Each light has its own timer. 
+-- Dimming light for a defined time. 
+-- Easy access to functions from the scenes. 
+-- Everything is based on one single virtual device, 
+-- For presentation timer and counting using slider - one for each device. 
+-- Switching the light in the scenes you can make in the traditional way, or... 
+-- ... simply by setting the slider value (setting the timer) - nothing more! 
+-- You can adjust the slider (timer) in many scenes together.
+-- If you want to set timer (slider) from scene to any value...
+-- ... even if it is lower than actual, use minused value (eg. -600).
 
 -- TODO:
--- dodać możliwość osobnego poziomu sciemniania dla manualnego wlaczania
+-- Possibilites to separate setting dimm level in manual steering.
+
+-- Donate this project: http://goo.gl/GVi94D
+-- Any qestions? Need help? Go to forum.fibaro.com.
+
+
+--[[AUTOLIGHTS
+  pl.rafikel.fibaro.autolights
+]]--
 
 -- show status on debug window 
 fibaro:debug("Getting list of virtual devices..."); 
 -- connect to HC2 
 HC2 = Net.FHttp("localhost", 80); 
 -- with authentication 
-HC2:setBasicAuthentication("admin", "admin"); 
+HC2:setBasicAuthentication(USER, PASSWORD);
 -- grab virtual devices list from api 
 response, status, errorCode = HC2:GET("/api/virtualDevices"); 
 -- show status on debug window 
-fibaro:debug("Status of reqest: " .. status .. '.'); 
+fibaro:debug("Status of reqest: " .. status .. '.');
 
 -- if answer is wrong 
-if (tonumber(status)~=200) then 
-  fibaro:debug("Error " .. errorCode .. "."); 
-end 
+if (tonumber(status)~=200) then
+  fibaro:debug("Error " .. errorCode .. ".");
+end
 
 -- prepare places for previous values 
 oldValues = {};
@@ -125,16 +157,24 @@ while (tonumber(status)==200) do
                 oldValues[deviceId] = 0; 
                 oldTimers[deviceId] = 0; 
               end
-
+              
               -- value from slider is not number?
               if (not sliderValue or (sliderValue % 1)>0 ) then
-                --fibaro:debug("Restoring... [" .. sliderValue .. "]");
+                --fibaro:debug(sliderData.caption .. " Set... [" .. sliderValue .. "]");
                 sliderValue = oldTimers[deviceId];
               end
+
+              -- set timer to lower value if slider below zero
+              if (sliderValue<0) then 
+                sliderValue = math.abs(sliderValue);
+                fibaro:debug(sliderData.caption .. " Without checking... [" .. sliderValue .. "]");
+
               -- slider value is smaller than prev value
-              if ( (oldTimers[deviceId]-sliderValue) > 2 ) then
+              elseif ( (oldTimers[deviceId]-sliderValue) > 2 ) then
                 sliderValue = oldTimers[deviceId];
               end
+
+              -- slider value to number
               sliderValue = tonumber(sliderValue);
               
               -- checking if its dead?
