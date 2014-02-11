@@ -78,11 +78,14 @@ WAIT_TIME_AFTER_CHANGES = 30
   pl.rafikel.fibaro.ncplus
 ]]--
 
-VERSION = "{1_0_9}"
+VERSION = "{1_1_0}"
 
 --[[
   HISTORY
-  
+
+  1.1.0
+  - fixed state on global variable
+
   1.0.9
   - optimalize script and prepare functions 
     for usage in another scripts.
@@ -453,9 +456,19 @@ end
 
 
 
+
+
+
+
+
 --[[
 	SETUP
 ]]--
+
+-- network resources
+local tcpHC2;
+local tcpDEVICE;
+local tcpSERVER;
 
 -- ip address of NC+
 local virtualIP = nil;
@@ -466,10 +479,20 @@ local virtualId = nil;
 -- nc+ box uuid
 local boxId = nil;
 
+-- global variables
+local globalName = nil;
+
 -- icons
 local iconON = 0;
 local iconOFF = 0;
 local iconERR = 0;
+
+-- declare button captions for icons
+local buttonAtIcon = {};
+-- declare key codes for icons
+local keyAtIcon = {};
+-- declare channels for icons
+local channelAtIcon = {};
 
 --[[
   STATUS
@@ -526,7 +549,7 @@ setState(0, "SETUP...");
 
 -- connect to HC2
 fibaro:debug("Connecting to HC2...");
-local tcpHC2 = Net.FHttp("localhost", 80);
+tcpHC2 = Net.FHttp("localhost", 80);
 if (not tcpHC2) then
   setState(-1, "HC2 ERROR!");
   fibaro:abort();
@@ -566,20 +589,13 @@ else
   fibaro:abort();
 end
 
--- declare button captions for icons
-local buttonAtIcon = {};
--- declare key codes for icons
-local keyAtIcon = {};
--- declare channels for icons
-local channelAtIcon = {};
-
 -- CHECK SERVER
 fibaro:debug("---");
 setState(0, "CHECKING SERVER...");
 
 -- connect to server
 fibaro:debug("Connecting to [fibaro.rafikel.pl]...");
-local tcpSERVER = Net.FHttp("fibaro.rafikel.pl", 80);
+tcpSERVER = Net.FHttp("fibaro.rafikel.pl", 80);
 if (not tcpSERVER) then
   fibaro:debug("SERVER ERROR! Skipping...");
 else
@@ -605,7 +621,7 @@ else
           content = string.gsub(content, 'PASSWORD = "admin"', 'PASSWORD = "' .. PASSWORD .. '"');
           content = string.gsub(content, 'AUTO_UPDATE = 1', 'AUTO_UPDATE = ' .. AUTO_UPDATE);
           content = string.gsub(content, 'PROBE_AT_START = 1', 'PROBE_AT_START = ' .. PROBE_AT_START);
-          content = string.gsub(content, 'WAIT_TIME_AFTER_CHANGES = 30', 'WAIT_TIME_AFTER_CHANGES = ' .. WAIT_TIME_AFTER_CHANGES);
+          content = string.gsub(content, 'WAIT_TIME_AFTER_CHANGES = 5', 'WAIT_TIME_AFTER_CHANGES = ' .. WAIT_TIME_AFTER_CHANGES);
           setVDeviceParam(tcpHC2, virtualId, "mainLoop", content);
           fibaro:debug("DONE!");
         else
@@ -674,7 +690,7 @@ setState(0, "PREPARE VIRTUAL...");
 
 -- Global variable
 fibaro:debug("Creating global variable base on [" .. virtualName .. "]...");
-local globalName = prepareGlobal(tcpHC2, virtualName);
+globalName = prepareGlobal(tcpHC2, virtualName);
 if (globalName) then
   fibaro:debug("Global variable [" .. globalName .. "] is OK.");
 else
@@ -704,25 +720,14 @@ fibaro:debug("---");
   PREPARE FOR MAIN LOOP
 ]]--
 
--- connection resource
-local tcpDEVICE;
-
 -- variables for main loop
 local counter = 0;
 local prevState = 0;
 local prevValue = 0;
 local lastContact = 0;
-
--- key to send
 local keyToSend = nil;
-
--- channel to send (4 digits)
 local channelToSend = nil;
-
--- witch digit from channel next to send
 local digitToSend = 0;
-
--- key code for digits
 local digitCode = {[0]=11, [1]=2, [2]=3, [3]=4, [4]=5, [5]=6, [6]=7, [7]=8, [8]=9, [9]=10};
 
 --[[
