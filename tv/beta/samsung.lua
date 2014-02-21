@@ -88,11 +88,14 @@ TV_SENDKEY_PORT = 55000
   pl.rafikel.fibaro.tv.samsung
 ]]--
 
-VERSION = "{0_2_0}"
+VERSION = "{0_2_1}"
 
 --[[
   HISTORY
   
+  0.2.1 (2014-02-21)
+  - Adjusted upnp reading timeouts.
+
   0.2.0 (2014-02-20)
   - Added upnp as optional services.
 
@@ -194,11 +197,14 @@ end
   "SafeState" = 1 for break loop or = 2 for stop script.
 --]]
 local safeX = fibaro:getGlobal("SafeState");
+function delay(ms)
+  fibaro:sleep(ms);
+end
 function X(valX)
   local globX = fibaro:getGlobal("SafeState");
   if (not globX) then
     safeX = valX;
-    fibaro:sleep(1);
+    --delay(1);
     return true;
   end
   if (globX=="1") then
@@ -213,7 +219,7 @@ function X(valX)
     return false;
   end
   safeX = valX;
-  fibaro:sleep(1);
+  --delay(1);
   return true;
 end
 
@@ -288,7 +294,7 @@ function setState(newState, description)
   -- print description
   if (description) then
     -- debug
-    fibaro:debug("[" .. icon .. "]: " .. description);
+    fibaro:debug("[" .. string.format("%.3f", os.clock()) .. "][" .. icon .. "]: " .. description);
     -- log on home screen
     fibaro:log(description);
     -- state label
@@ -526,7 +532,7 @@ function prepareVirtualDevice(tcp, id, mainIcon)
       fibaro:debug("New session should start in a moment...");
       fibaro:debug("PLEASE BE PATIENT!");
       setState(nil, "WAIT [" .. WAIT_TIME_AFTER_CHANGES .. " s.]...");
-      fibaro:sleep(WAIT_TIME_AFTER_CHANGES * 1000);
+      delay(WAIT_TIME_AFTER_CHANGES * 1000);
       fibaro:debug("...");
       -- put to HC2
       response, status, errorCode = tcp:PUT("/api/virtualDevices", toPut);
@@ -573,7 +579,7 @@ function setVDeviceParam(tcp, id, key, value)
     fibaro:debug("New session should start in a moment...");
     fibaro:debug("PLEASE BE PATIENT!");
     setState(nil, "WAIT [" .. WAIT_TIME_AFTER_CHANGES .. " s.]...");
-    fibaro:sleep(WAIT_TIME_AFTER_CHANGES * 1000);
+    delay(WAIT_TIME_AFTER_CHANGES * 1000);
     fibaro:debug("...");
     -- put to HC2
     response, status, errorCode = tcp:PUT("/api/virtualDevices", toPut);
@@ -934,7 +940,7 @@ fibaro:debug("---");
 local connTry = 0;
 while (X("0:connectionLoop")) do
   setState(nil, "Waiting for TV [" .. connTry .. "]...");
-  fibaro:sleep(WAIT_TIME_AFTER_DISCONNECT * 1000);
+  delay(WAIT_TIME_AFTER_DISCONNECT * 1000);
   if (SamsungSendKey(virtualIP, TV_SENDKEY_PORT, "KEY_ENTER")) then
     setState(1, "TV FOUND [" .. TV_SENDKEY_PORT .. "]!");
     break;
@@ -1111,9 +1117,21 @@ local UPNPValues = {
 
 -- upnp functions to run
 local UPNPFunctions = {
+  ["GetVolume"] = {
+    ["clock"] = 0.0,
+    ["period"] = 0.50,
+    ["next"] = 0.05,
+    ["url"] = "/upnp/control/RenderingControl1",
+    ["service"] = "RenderingControl:1",
+    ["content"] = "<InstanceID>0</InstanceID>\n<Channel>Master</Channel>\n",
+    ["values"] = {
+      ["Volume"] = "CurrentVolume"
+    }
+  },
   ["GetPositionInfo"] = {
     ["clock"] = 0.0,
-    ["period"] = 0.5,
+    ["period"] = 2.00,
+    ["next"] = 1.10,
     ["url"] = "/upnp/control/AVTransport1",
     ["service"] = "AVTransport:1",
     ["content"] = "<InstanceID>0</InstanceID>\n",
@@ -1124,7 +1142,8 @@ local UPNPFunctions = {
   },
   ["X_DLNA_GetBytePositionInfo"] = {
     ["clock"] = 0.0,
-    ["period"] = 0.5,
+    ["period"] = 2.01,
+    ["next"] = 0.25,
     ["url"] = "/upnp/control/AVTransport1",
     ["service"] = "AVTransport:1",
     ["content"] = "<InstanceID>0</InstanceID>\n",
@@ -1135,7 +1154,8 @@ local UPNPFunctions = {
   },
   ["GetTransportInfo"] = {
     ["clock"] = 0.0,
-    ["period"] = 0.5,
+    ["period"] = 2.02,
+    ["next"] = 1.10,
     ["url"] = "/upnp/control/AVTransport1",
     ["service"] = "AVTransport:1",
     ["content"] = "<InstanceID>0</InstanceID>\n",
@@ -1145,7 +1165,8 @@ local UPNPFunctions = {
   },
   ["GetMute"] = {
     ["clock"] = 0.0,
-    ["period"] = 0.5,
+    ["period"] = 2.03,
+    ["next"] = 1.10,
     ["url"] = "/upnp/control/RenderingControl1",
     ["service"] = "RenderingControl:1",
     ["content"] = "<InstanceID>0</InstanceID>\n<Channel>Master</Channel>\n",
@@ -1155,7 +1176,8 @@ local UPNPFunctions = {
   },
   ["GetSharpness"] = {
     ["clock"] = 0.0,
-    ["period"] = 0.5,
+    ["period"] = 2.04,
+    ["next"] = 0.25,
     ["url"] = "/upnp/control/RenderingControl1",
     ["service"] = "RenderingControl:1",
     ["content"] = "<InstanceID>0</InstanceID>\n<Channel>Master</Channel>\n",
@@ -1165,7 +1187,8 @@ local UPNPFunctions = {
   },
   ["GetContrast"] = {
     ["clock"] = 0.0,
-    ["period"] = 0.5,
+    ["period"] = 2.05,
+    ["next"] = 0.25,
     ["url"] = "/upnp/control/RenderingControl1",
     ["service"] = "RenderingControl:1",
     ["content"] = "<InstanceID>0</InstanceID>\n<Channel>Master</Channel>\n",
@@ -1175,22 +1198,13 @@ local UPNPFunctions = {
   },
   ["GetBrightness"] = {
     ["clock"] = 0.0,
-    ["period"] = 0.5,
+    ["period"] = 2.06,
+    ["next"] = 0.25,
     ["url"] = "/upnp/control/RenderingControl1",
     ["service"] = "RenderingControl:1",
     ["content"] = "<InstanceID>0</InstanceID>\n<Channel>Master</Channel>\n",
     ["values"] = {
       ["Brightness"] = "CurrentBrightness"
-    }
-  },
-  ["GetVolume"] = {
-    ["clock"] = 0.0,
-    ["period"] = 0.5,
-    ["url"] = "/upnp/control/RenderingControl1",
-    ["service"] = "RenderingControl:1",
-    ["content"] = "<InstanceID>0</InstanceID>\n<Channel>Master</Channel>\n",
-    ["values"] = {
-      ["Volume"] = "CurrentVolume"
     }
   }
 }
@@ -1217,8 +1231,8 @@ local errorsLeft = ERRORS_BEFORE_RESTART;
 -- main loop
 while (X("S:MainLoop") and errorsLeft>0) do
 
-  -- delay for security
-  fibaro:sleep(0);
+  -- if has to be skipped
+  local continue = false;
 
   -- UPNP available?
   if (UPNPAvailable) then
@@ -1227,10 +1241,8 @@ while (X("S:MainLoop") and errorsLeft>0) do
     for fname, fparam in pairs(UPNPFunctions) do
       -- time to read?
       local s = os.clock() - fparam["clock"];
-      if (fparam["clock"]==0 or s > 1) then
-        fibaro:debug(string.format("[%.3f] " .. fname .. "...", s));
-        -- clear clock
-        UPNPFunctions[fname]["clock"] = os.clock();
+      if (fparam["clock"]==0 or s > fparam["period"]) then
+        -- fibaro:debug(string.format("[%.3f] " .. fname .. "...", s));
         -- run function
         local var, rest;
         var, rest = UPNPReqest(
@@ -1250,22 +1262,29 @@ while (X("S:MainLoop") and errorsLeft>0) do
             value, rest = XML(rest, current);
             -- value changed
             if (value and value ~= UPNPValues[key]) then
-              setState(1);
               if (fparam["service"]=="RenderingControl:1") then
                 setState(1, key .. "[" .. value .. "]");
+              else
+                setState(1);
               end
               UPNPValues[key] = value;
               fibaro:setGlobal(globalName .. key, value);
               fibaro:call(virtualId, "setProperty", "ui." .. key .. ".value", value);
-              fibaro:sleep(100);
+              -- next read after ...
+              UPNPFunctions[fname]["clock"] = os.clock() + fparam["next"];
+            else
+              -- no change, next reading after defined period
+              UPNPFunctions[fname]["clock"] = os.clock();
             end -- value changed
+            continue = true;
+            break; -- skip for
           end -- for all values
         elseif (UPNPAvailable) then
           errorsLeft = errorsLeft - 1;
           setState(0, "No answer!");
-          fibaro:sleep(WAIT_TIME_AFTER_DISCONNECT * 1000);
+          delay(WAIT_TIME_AFTER_DISCONNECT * 1000);
+          UPNPFunctions[fname]["clock"] = os.clock();
         end -- answer ok
-        break; -- skip for
       end -- if time
     end -- FUNCTIONS
 
@@ -1273,43 +1292,47 @@ while (X("S:MainLoop") and errorsLeft>0) do
 
 
   -- SLIDERS
-  for key, value in pairs(UPNPValues) do
-    local slider, ts;
-    slider, ts = fibaro:get(virtualId, "ui." .. key .. ".value");
-    -- value changed
-    if (value and tonumber(value) and slider and tonumber(slider) and slider~=value) then
-      setState(nil);
-      -- set new value
-      local var, rest;
-      var, rest = UPNPReqest(virtualIP, virtualPort,
-        "/upnp/control/RenderingControl1",
-        "RenderingControl:1",
-        "Set" .. key,
-        "<InstanceID>0</InstanceID>\n<Channel>Master</Channel>\n"..
-        "<Desired" .. key .. ">" .. slider .. "</Desired" .. key .. ">\n"
-      );
-      -- set confirmed
-      if (rest) then
-        UPNPAvailable = true;
-        setState(1, key .. " [" .. UPNPValues[key] .. ">" .. slider .. "]");
-        fibaro:setGlobal(globalName .. key, slider);
-      elseif (UPNPAvailable) then
-        errorsLeft = errorsLeft - 1;
-        setState(0, "No answer!");
-        fibaro:sleep(WAIT_TIME_AFTER_DISCONNECT * 1000);
-      end
-      UPNPValues[key] = slider;
-      break; -- skip for
-    end -- value changed
-  end -- SLIDERS
+  if (continue==false) then
+    for key, value in pairs(UPNPValues) do
+      local slider, ts;
+      slider, ts = fibaro:get(virtualId, "ui." .. key .. ".value");
+      -- value changed
+      if (value and tonumber(value) 
+        and slider and tonumber(slider) 
+        and slider~=value
+        and (os.time()-ts) < 2
+      ) then
+        setState(nil);
+        -- set new value
+        local var, rest;
+        var, rest = UPNPReqest(virtualIP, virtualPort,
+          "/upnp/control/RenderingControl1",
+          "RenderingControl:1",
+          "Set" .. key,
+          "<InstanceID>0</InstanceID>\n<Channel>Master</Channel>\n"..
+          "<Desired" .. key .. ">" .. slider .. "</Desired" .. key .. ">\n"
+        );
+        -- set confirmed
+        if (rest) then
+          UPNPAvailable = true;
+          setState(1, key .. "[" .. UPNPValues[key] .. ">" .. slider .. "]");
+          fibaro:setGlobal(globalName .. key, slider);
+        elseif (UPNPAvailable) then
+          errorsLeft = errorsLeft - 1;
+          setState(0, "No answer!");
+          delay(WAIT_TIME_AFTER_DISCONNECT * 1000);
+        end
+        UPNPValues[key] = slider;
+        break; -- skip for
+      end -- value changed
+    end -- for SLIDERS
+  end -- continue
 
 
   -- DURATION
+  local duration, sliderTs;
+  duration, sliderTs = fibaro:get(virtualId, "ui.Duration.value");
   if (1) then
-
-    -- remember duration
-    local duration, ts;
-    duration, ts = fibaro:get(virtualId, "ui.Duration.value");
 
     -- check duration
     local ts = UPNPValues["TrackDuration"];
@@ -1353,7 +1376,8 @@ while (X("S:MainLoop") and errorsLeft>0) do
     
     -- set new duration
     if (duration and tonumber(duration) 
-      and tonumber(duration) ~= lastDuration
+      and duration~=lastDuration
+      and (os.time()-sliderTs)<2
       and bs and tonumber(bs)
     ) then
       local v = math.floor((tonumber(duration) * (bs / 100))+0.5);
@@ -1364,7 +1388,7 @@ while (X("S:MainLoop") and errorsLeft>0) do
         "Seek",
         "<InstanceID>0</InstanceID>\n<Unit>X_DLNA_REL_BYTE</Unit>\n<Target>" .. v .. "</Target>\n"
       );
-      lastDuration = tonumber(duration);
+      lastDuration = duration;
     end
     
   end -- DURATION
@@ -1374,9 +1398,13 @@ while (X("S:MainLoop") and errorsLeft>0) do
   if (1) then
     local channel, ts;
     channel, ts = fibaro:get(virtualId, "ui.Channel.value");
-    if (channel and tonumber(channel) ~= lastChannel and os.time()-ts<5) then
+    if (
+      channel and tonumber(channel)
+      and channel~=lastChannel 
+      and (os.time()-ts)<2
+    ) then
       setState(nil);
-      lastChannel = tonumber(channel);
+      lastChannel = channel;
       setState(nil, "Channel " .. channel);
       for i = 1, #channel do
         local key = "KEY_" .. channel:sub(i,i);
@@ -1413,9 +1441,6 @@ while (X("S:MainLoop") and errorsLeft>0) do
       icon = tonumber(icon);
       local name = buttonAtIcon[icon];
       local action = actionAtIcon[icon];
-      if (name and action) then
-        fibaro:debug("Action [" .. name .. "]...");
-      end
       
       -- channel to send
       if (string.find(action, "CHANNEL_")==1) then
@@ -1434,7 +1459,7 @@ while (X("S:MainLoop") and errorsLeft>0) do
               errorsLeft = errorsLeft - 1;
               break; -- skip for
             end
-            fibaro:sleep(100);
+            delay(100);
           end
         end
       
@@ -1458,7 +1483,7 @@ while (X("S:MainLoop") and errorsLeft>0) do
               local ac = "";
               fibaro:debug("Waiting [Power=Exit | Source=Next]...");
               repeat X("0:Wait")
-                fibaro:sleep(100);
+                delay(100);
                 local ic = fibaro:get(virtualId, "currentIcon");
                 if (ic) then
                   ic = tonumber(ic);
@@ -1471,9 +1496,7 @@ while (X("S:MainLoop") and errorsLeft>0) do
                 action = "";
               end
             else
-              if (#action > 0) then
-                setState(nil, key);
-              end
+              setState(nil, key);
               local ok = SamsungSendKey(virtualIP, TV_SENDKEY_PORT, key);
               if (ok) then
                 setState(1);
@@ -1485,7 +1508,7 @@ while (X("S:MainLoop") and errorsLeft>0) do
             end
           else
             fibaro:debug("Delay [250]");
-            fibaro:sleep(250);
+            delay(250);
           end
         end X("E:ActionKey") -- while action
 
@@ -1549,7 +1572,7 @@ while (X("S:MainLoop") and errorsLeft>0) do
           end
         else
           setState(nil, "No response!");
-          fibaro:sleep(WAIT_TIME_AFTER_DISCONNECT * 1000);
+          delay(WAIT_TIME_AFTER_DISCONNECT * 1000);
         end
       
       -- if no action
@@ -1569,7 +1592,7 @@ end X("E:MainLoop")
 setState(-1, "RESTARTING...");
 
 -- WAIT BEFORE NEXT RUN
-fibaro:sleep(WAIT_TIME_AFTER_CHANGES * 1000);
+delay(WAIT_TIME_AFTER_CHANGES * 1000);
 
 --[[TV_SAMSUNG
   pl.rafikel.fibaro.tv.samsung
