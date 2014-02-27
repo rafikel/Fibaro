@@ -1,6 +1,6 @@
 -- LIGHTS AUTOMATION
 -- LUA script by fibaro.rafikel.pl
--- version 1.3, 2014-02-10, license GPL
+-- version 1.4, 2014-02-27, license GPL
 
 -- Documentations available on Fibaro forum at this topics:
 -- http://forum.fibaro.com/viewtopic.php?t=2693 (EN)
@@ -56,6 +56,7 @@ end
 -- prepare places for previous values 
 oldValues = {};
 oldTimers = {};
+manualControl = {};
 lastWakeTime = {};
 
 -- icons 
@@ -164,8 +165,10 @@ while (tonumber(status)==200) do
                 sliderValue = oldTimers[deviceId];
               end
 
-              -- set timer to lower value if slider below zero
-              if (sliderValue<0) then 
+              -- set timer to lower value 
+              -- if slider below zero (minused)
+              -- and not manual turned before
+              if (sliderValue<0 and not manualControl[deviceId]) then 
                 sliderValue = math.abs(sliderValue);
                 fibaro:debug(sliderData.caption .. " Without checking... [" .. sliderValue .. "]");
 
@@ -231,6 +234,8 @@ while (tonumber(status)==200) do
               -- and new status (value) is biggest than previously 
               -- and sliderValue==0? 
               elseif (sliderParams.defaultTime and deviceValue>oldValues[deviceId]) then 
+                -- remember is manual
+                manualControl[deviceId] = 1;
                 -- set slider value to defined time 
                 sliderValue = sliderParams.defaultTime;
                 -- if default starting value for dimmer device is defined? 
@@ -245,6 +250,9 @@ while (tonumber(status)==200) do
               
               -- manual off 
               elseif (sliderValue>0 and deviceValue==0 and deviceSeconds<2) then 
+                -- clear is manual 
+                manualControl[deviceId] = nil;
+                -- default value
                 sliderValue = 0; 
                 -- show log on home screen 
                 fibaro:log(sliderData.caption .. ' Aborting!'); 
@@ -255,6 +263,8 @@ while (tonumber(status)==200) do
               
               -- switch off by slider 
               elseif (sliderValue==0 and oldTimers[deviceId]>0) then 
+                -- clear is manual 
+                manualControl[deviceId] = nil;
                 -- log on home screen 
                 fibaro:log(sliderData.caption .. ' OFF by slider!'); 
                 -- switch off device 
@@ -268,10 +278,17 @@ while (tonumber(status)==200) do
                 sliderValue = sliderValue - 1; 
 
                 -- debug on window
-                fibaro:debug('Device [' .. deviceId .. ']: Value [' .. deviceValue .. '][' .. deviceSeconds .. ' s.]; Slider [' .. sliderValue .. '][' .. sliderSeconds .. ' s.];'); 
+                if (manualControl[deviceId]) then
+                  t = "Manual";
+                else
+                  t = "Auto";
+                end
+                fibaro:debug('Device [' .. deviceId .. '][' .. t .. ']: Value [' .. deviceValue .. '][' .. deviceSeconds .. ' s.]; Slider [' .. sliderValue .. '][' .. sliderSeconds .. ' s.];'); 
 
                 -- time to switch off 
                 if (sliderValue==0) then 
+                  -- clear is manual 
+                  manualControl[deviceId] = nil;
                   -- log on home screen 
                   fibaro:log(sliderData.caption .. ' Auto OFF!'); 
                   -- switch off device 
