@@ -88,11 +88,14 @@ TV_SENDKEY_PORT = 55000
   pl.rafikel.fibaro.tv.samsung
 ]]--
 
-VERSION = "{0_2_1}"
+VERSION = "{0_2_2}"
 
 --[[
   HISTORY
   
+  0.2.2 (2014-02-21)
+  - Adjusted upnp reading timeouts.
+
   0.2.1 (2014-02-21)
   - Adjusted upnp reading timeouts.
 
@@ -294,7 +297,7 @@ function setState(newState, description)
   -- print description
   if (description) then
     -- debug
-    fibaro:debug("[" .. string.format("%.3f", os.clock()) .. "][" .. icon .. "]: " .. description);
+    fibaro:debug(description);
     -- log on home screen
     fibaro:log(description);
     -- state label
@@ -830,7 +833,7 @@ function UPNPReqest(ip, port, upnpUrl, upnpService, upnpFunction, upnpContent)
     return nil;
   end
   tcpSocket:setReadTimeout(250);
-  --fibaro:debug("C: " .. upnpService .. " / " .. upnpFunction .. "...");
+  -- fibaro:debug("C: " .. upnpService .. " / " .. upnpFunction .. "...");
   local result = "";
   local reqest = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n";
   reqest = reqest .. "<s:Envelope";
@@ -1063,7 +1066,7 @@ if (1) then
 
   -- print all infos
   printr(UPNPInfo, 0, "UPNP Info");
-  printr(UPNPServices, 0, "UPNPServices");
+  -- printr(UPNPServices, 0, "UPNPServices");
   
   -- tv worked with upnp?
   if (UPNPInfo["dmr"] and UPNPInfo["rcr"]) then
@@ -1104,6 +1107,7 @@ end -- if UPNPAvailable
 
 -- upnp values readed
 local UPNPValues = {
+  ["CurrentTransportState"] = nil,
   ["TrackDuration"] = nil,
   ["AbsTime"] = nil,
   ["TrackSize"] = nil,
@@ -1118,9 +1122,7 @@ local UPNPValues = {
 -- upnp functions to run
 local UPNPFunctions = {
   ["GetVolume"] = {
-    ["clock"] = 0.0,
-    ["period"] = 0.50,
-    ["next"] = 0.05,
+    ["clock"] = 0,
     ["url"] = "/upnp/control/RenderingControl1",
     ["service"] = "RenderingControl:1",
     ["content"] = "<InstanceID>0</InstanceID>\n<Channel>Master</Channel>\n",
@@ -1128,22 +1130,8 @@ local UPNPFunctions = {
       ["Volume"] = "CurrentVolume"
     }
   },
-  ["GetPositionInfo"] = {
-    ["clock"] = 0.0,
-    ["period"] = 2.00,
-    ["next"] = 1.10,
-    ["url"] = "/upnp/control/AVTransport1",
-    ["service"] = "AVTransport:1",
-    ["content"] = "<InstanceID>0</InstanceID>\n",
-    ["values"] = {
-      ["TrackDuration"] = "TrackDuration",
-      ["AbsTime"] = "AbsTime"
-    }
-  },
   ["X_DLNA_GetBytePositionInfo"] = {
     ["clock"] = 0.0,
-    ["period"] = 2.01,
-    ["next"] = 0.25,
     ["url"] = "/upnp/control/AVTransport1",
     ["service"] = "AVTransport:1",
     ["content"] = "<InstanceID>0</InstanceID>\n",
@@ -1152,10 +1140,18 @@ local UPNPFunctions = {
       ["AbsByte"] = "AbsByte"
     }
   },
+  ["GetPositionInfo"] = {
+    ["clock"] = 0.0,
+    ["url"] = "/upnp/control/AVTransport1",
+    ["service"] = "AVTransport:1",
+    ["content"] = "<InstanceID>0</InstanceID>\n",
+    ["values"] = {
+      ["TrackDuration"] = "TrackDuration",
+      ["AbsTime"] = "AbsTime"
+    }
+  },
   ["GetTransportInfo"] = {
     ["clock"] = 0.0,
-    ["period"] = 2.02,
-    ["next"] = 1.10,
     ["url"] = "/upnp/control/AVTransport1",
     ["service"] = "AVTransport:1",
     ["content"] = "<InstanceID>0</InstanceID>\n",
@@ -1165,8 +1161,6 @@ local UPNPFunctions = {
   },
   ["GetMute"] = {
     ["clock"] = 0.0,
-    ["period"] = 2.03,
-    ["next"] = 1.10,
     ["url"] = "/upnp/control/RenderingControl1",
     ["service"] = "RenderingControl:1",
     ["content"] = "<InstanceID>0</InstanceID>\n<Channel>Master</Channel>\n",
@@ -1176,8 +1170,6 @@ local UPNPFunctions = {
   },
   ["GetSharpness"] = {
     ["clock"] = 0.0,
-    ["period"] = 2.04,
-    ["next"] = 0.25,
     ["url"] = "/upnp/control/RenderingControl1",
     ["service"] = "RenderingControl:1",
     ["content"] = "<InstanceID>0</InstanceID>\n<Channel>Master</Channel>\n",
@@ -1187,8 +1179,6 @@ local UPNPFunctions = {
   },
   ["GetContrast"] = {
     ["clock"] = 0.0,
-    ["period"] = 2.05,
-    ["next"] = 0.25,
     ["url"] = "/upnp/control/RenderingControl1",
     ["service"] = "RenderingControl:1",
     ["content"] = "<InstanceID>0</InstanceID>\n<Channel>Master</Channel>\n",
@@ -1198,8 +1188,6 @@ local UPNPFunctions = {
   },
   ["GetBrightness"] = {
     ["clock"] = 0.0,
-    ["period"] = 2.06,
-    ["next"] = 0.25,
     ["url"] = "/upnp/control/RenderingControl1",
     ["service"] = "RenderingControl:1",
     ["content"] = "<InstanceID>0</InstanceID>\n<Channel>Master</Channel>\n",
@@ -1221,8 +1209,7 @@ setState(nil, "READY!");
 local lastProperty = "";
 local lastIcon = 0;
 local lastChannel = 0;
-local lastAVTime = 0;
-local lastAVSeek = 0;
+local lastAVTransport = 0;
 local lastDuration = 0;
 
 -- counter for errors
@@ -1233,16 +1220,18 @@ while (X("S:MainLoop") and errorsLeft>0) do
 
   -- if has to be skipped
   local continue = false;
-
+  
   -- UPNP available?
   if (UPNPAvailable) then
   
     -- FUNCTIONS
     for fname, fparam in pairs(UPNPFunctions) do
+      -- if something was readed
+      if (continue) then
+        break; -- skip checking
+      end
       -- time to read?
-      local s = os.clock() - fparam["clock"];
-      if (fparam["clock"]==0 or s > fparam["period"]) then
-        -- fibaro:debug(string.format("[%.3f] " .. fname .. "...", s));
+      if (os.time() > fparam["clock"]) then
         -- run function
         local var, rest;
         var, rest = UPNPReqest(
@@ -1254,36 +1243,37 @@ while (X("S:MainLoop") and errorsLeft>0) do
           fparam["content"]
         );
         -- answer is ok
-        if (rest) then
+        if (var) then
           UPNPAvailable = true;
           -- search all values
           for key, current in pairs(fparam["values"]) do
             local value;
-            value, rest = XML(rest, current);
+            value, rest = XML(var, current);
             -- value changed
             if (value and value ~= UPNPValues[key]) then
               if (fparam["service"]=="RenderingControl:1") then
                 setState(1, key .. "[" .. value .. "]");
               else
+                fibaro:debug(key .. " [" .. value .. "]");
                 setState(1);
               end
               UPNPValues[key] = value;
               fibaro:setGlobal(globalName .. key, value);
               fibaro:call(virtualId, "setProperty", "ui." .. key .. ".value", value);
-              -- next read after ...
-              UPNPFunctions[fname]["clock"] = os.clock() + fparam["next"];
+              -- next read in a second
+              UPNPFunctions[fname]["clock"] = os.time();
             else
-              -- no change, next reading after defined period
-              UPNPFunctions[fname]["clock"] = os.clock();
+              -- no change, next reading after period
+              UPNPFunctions[fname]["clock"] = os.time() + 1;
             end -- value changed
             continue = true;
-            break; -- skip for
           end -- for all values
         elseif (UPNPAvailable) then
           errorsLeft = errorsLeft - 1;
           setState(0, "No answer!");
           delay(WAIT_TIME_AFTER_DISCONNECT * 1000);
-          UPNPFunctions[fname]["clock"] = os.clock();
+          -- next try after few sec.
+          UPNPFunctions[fname]["clock"] = os.time() + WAIT_TIME_AFTER_DISCONNECT;
         end -- answer ok
       end -- if time
     end -- FUNCTIONS
@@ -1342,36 +1332,33 @@ while (X("S:MainLoop") and errorsLeft>0) do
     local st = UPNPValues["CurrentTransportState"];
     if (ts and tp) then
       local t = tp .. "/" .. ts;
-      if (lastAVTime ~= t) then
-        lastAVTime = t;
+      if (lastAVTransport ~= t) then
+        lastAVTransport = t;
         if (bs and bp) then
           t = bp .. "/" .. bs;
           local perc = math.floor((bp/(bs/100))+0.5);
-          if (lastAVSeek ~= t) then
-            lastAVSeek = t;
-            lastDuration = perc;
-            -- {"NO_MEDIA_PRESENT", "STOPPED", "PAUSED_PLAYBACK", "PLAYING", "TRANSITIONING"}
-            if (st) then
-              if (st=="PLAYING") then
-                setState(1, "► " .. tp .. "");
-              elseif (st=="STOPPED") then
-                setState(1, "▇ " .. tp .. "");
-              elseif (st=="PAUSED_PLAYBACK") then
-                setState(1, "▮▮ " .. tp .. "");
-              elseif (st=="TRANSITIONING") then
-                setState(1, "Transitioning");
-              elseif (st=="NO_MEDIA_PRESENT") then
-                setState(1, "No media");
-              else
-                setState(1, st);
-              end
+          lastDuration = perc;
+          -- {"NO_MEDIA_PRESENT", "STOPPED", "PAUSED_PLAYBACK", "PLAYING", "TRANSITIONING"}
+          if (st) then
+            if (st=="PLAYING") then
+              setState(1, "► " .. tp .. "");
+            elseif (st=="STOPPED") then
+              setState(1, "▇ " .. tp .. "");
+            elseif (st=="PAUSED_PLAYBACK") then
+              setState(1, "▮▮ " .. tp .. "");
+            elseif (st=="TRANSITIONING") then
+              setState(1, "Transitioning");
+            elseif (st=="NO_MEDIA_PRESENT") then
+              setState(1, "No media");
+            else
+              setState(1, st);
             end
-            fibaro:setGlobal(globalName .. "Duration", perc);
-            fibaro:call(virtualId, "setProperty", "ui.Duration.value", "" .. perc .. "%");
-            fibaro:call(virtualId, "setProperty", "ui.Media.value", lastAVTime);
-          end -- ~lastAVSeek
+          end
+          fibaro:setGlobal(globalName .. "Duration", perc);
+          fibaro:call(virtualId, "setProperty", "ui.Duration.value", "" .. perc .. "%");
+          fibaro:call(virtualId, "setProperty", "ui.Media.value", lastAVTransport);
         end -- bs and bp
-      end -- ~lastAVTime
+      end -- ~lastAVTransport
     end -- ts and tp
     
     -- set new duration
