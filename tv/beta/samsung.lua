@@ -93,8 +93,8 @@ VERSION = "{0_2_2}"
 --[[
   HISTORY
   
-  0.2.2 (2014-02-21)
-  - Adjusted upnp reading timeouts.
+  0.2.2 (2014-02-27)
+  - Fixed upnp communication.
 
   0.2.1 (2014-02-21)
   - Adjusted upnp reading timeouts.
