@@ -78,11 +78,14 @@ WAIT_TIME_AFTER_CHANGES = 30
   pl.rafikel.fibaro.ncplus
 ]]--
 
-VERSION = "{1_1_0}"
+VERSION = "{1_2_0}"
 
 --[[
   HISTORY
 
+  1.2.0 (2015-02-18)
+  - update for HC2 4.0.
+  
   1.1.0
   - fixed state on global variable
 
@@ -275,7 +278,7 @@ function prepareVirtualDevice(tcp, id, mainIcon)
   -- type of change to made (icons, buttons)
   changeType = nil;
   -- grab virtual devices list from api
-  response, status, errorCode = tcp:GET("/api/virtualDevices?id=" .. id);
+  response, status, errorCode = tcp:GET("/api/virtualDevices/" .. id);
   -- show status on debug window
   --fibaro:debug("Status of reqest: " .. status .. '.');
   -- if answer is wrong
@@ -363,7 +366,7 @@ function prepareVirtualDevice(tcp, id, mainIcon)
       fibaro:sleep(WAIT_TIME_AFTER_CHANGES * 1000);
       fibaro:debug("...");
       -- put to HC2
-      response, status, errorCode = tcp:PUT("/api/virtualDevices", toPut);
+      response, status, errorCode = tcp:PUT("/api/virtualDevices/" .. id, toPut);
       -- result?
       fibaro:debug("REQEST [" .. status .. "][" .. errorCode .. "][" .. string.len(response) .. "]");
       -- not happend!
@@ -385,7 +388,7 @@ end
 --]]
 function setVDeviceParam(tcp, id, key, value)
   -- grab virtual devices list from api
-  response, status, errorCode = tcp:GET("/api/virtualDevices?id=" .. id);
+  response, status, errorCode = tcp:GET("/api/virtualDevices/" .. id);
   -- if answer is wrong
   if (tonumber(status)~=200) then
     fibaro:debug("Error " .. errorCode .. ".");
@@ -409,7 +412,7 @@ function setVDeviceParam(tcp, id, key, value)
     fibaro:sleep(WAIT_TIME_AFTER_CHANGES * 1000);
     fibaro:debug("...");
     -- put to HC2
-    response, status, errorCode = tcp:PUT("/api/virtualDevices", toPut);
+    response, status, errorCode = tcp:PUT("/api/virtualDevices/" .. id, toPut);
     -- result?
     fibaro:debug("REQEST [" .. status .. "][" .. errorCode .. "][" .. string.len(response) .. "]");
     -- not happend!

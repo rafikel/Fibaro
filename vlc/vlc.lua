@@ -91,10 +91,13 @@ WAIT_TIME_AFTER_DISCONNECT = 5
   pl.rafikel.fibaro.vlc
 ]]--
 
-VERSION = "{0_1_0}"
+VERSION = "{0_2_0}"
 
 --[[
   HISTORY
+  
+  0.2.0 (2015-02-18)
+  - Update for HC2 4.0.
   
   0.1.0 (2014-03-20)
   - First beta version.
@@ -435,7 +438,7 @@ function prepareVirtualDevice(tcp, id, mainIcon)
   -- type of change to made (icons, buttons)
   changeType = nil;
   -- grab virtual devices list from api
-  response, status, errorCode = tcp:GET("/api/virtualDevices?id=" .. id);
+  response, status, errorCode = tcp:GET("/api/virtualDevices/" .. id);
   -- show status on debug window
   --fibaro:debug("Status of reqest: " .. status .. '.');
   -- if answer is wrong
@@ -507,7 +510,7 @@ function prepareVirtualDevice(tcp, id, mainIcon)
       delay(WAIT_TIME_AFTER_CHANGES * 1000);
       fibaro:debug("...");
       -- put to HC2
-      response, status, errorCode = tcp:PUT("/api/virtualDevices", toPut);
+      response, status, errorCode = tcp:PUT("/api/virtualDevices/" .. id, toPut);
       -- result?
       fibaro:debug("REQEST [" .. status .. "][" .. errorCode .. "][" .. string.len(response) .. "]");
       -- not happend!
@@ -529,7 +532,7 @@ end
 --]]
 function setVDeviceParam(tcp, id, key, value)
   -- grab virtual devices list from api
-  response, status, errorCode = tcp:GET("/api/virtualDevices?id=" .. id);
+  response, status, errorCode = tcp:GET("/api/virtualDevices/" .. id);
   -- if answer is wrong
   if (tonumber(status)~=200) then
     fibaro:debug("Error " .. errorCode .. ".");
@@ -554,7 +557,7 @@ function setVDeviceParam(tcp, id, key, value)
     delay(WAIT_TIME_AFTER_CHANGES * 1000);
     fibaro:debug("...");
     -- put to HC2
-    response, status, errorCode = tcp:PUT("/api/virtualDevices", toPut);
+    response, status, errorCode = tcp:PUT("/api/virtualDevices/" .. id, toPut);
     -- result?
     fibaro:debug("REQEST [" .. status .. "][" .. errorCode .. "][" .. string.len(response) .. "]");
     -- not happend!
