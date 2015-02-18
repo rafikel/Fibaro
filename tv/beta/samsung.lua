@@ -93,6 +93,9 @@ VERSION = "{0_2_2}"
 --[[
   HISTORY
   
+  0.3.0 (2015-02-18)
+  - Fixed for HC 4.0
+
   0.2.2 (2014-02-27)
   - Fixed upnp communication.
 
@@ -466,7 +469,7 @@ function prepareVirtualDevice(tcp, id, mainIcon)
   -- type of change to made (icons, buttons)
   changeType = nil;
   -- grab virtual devices list from api
-  response, status, errorCode = tcp:GET("/api/virtualDevices?id=" .. id);
+  response, status, errorCode = tcp:GET("/api/virtualDevices/" .. id);
   -- show status on debug window
   --fibaro:debug("Status of reqest: " .. status .. '.');
   -- if answer is wrong
@@ -538,7 +541,7 @@ function prepareVirtualDevice(tcp, id, mainIcon)
       delay(WAIT_TIME_AFTER_CHANGES * 1000);
       fibaro:debug("...");
       -- put to HC2
-      response, status, errorCode = tcp:PUT("/api/virtualDevices", toPut);
+      response, status, errorCode = tcp:PUT("/api/virtualDevices/" .. id, toPut);
       -- result?
       fibaro:debug("REQEST [" .. status .. "][" .. errorCode .. "][" .. string.len(response) .. "]");
       -- not happend!
@@ -560,7 +563,7 @@ end
 --]]
 function setVDeviceParam(tcp, id, key, value)
   -- grab virtual devices list from api
-  response, status, errorCode = tcp:GET("/api/virtualDevices?id=" .. id);
+  response, status, errorCode = tcp:GET("/api/virtualDevices/" .. id);
   -- if answer is wrong
   if (tonumber(status)~=200) then
     fibaro:debug("Error " .. errorCode .. ".");
@@ -585,7 +588,7 @@ function setVDeviceParam(tcp, id, key, value)
     delay(WAIT_TIME_AFTER_CHANGES * 1000);
     fibaro:debug("...");
     -- put to HC2
-    response, status, errorCode = tcp:PUT("/api/virtualDevices", toPut);
+    response, status, errorCode = tcp:PUT("/api/virtualDevices/" .. id, toPut);
     -- result?
     fibaro:debug("REQEST [" .. status .. "][" .. errorCode .. "][" .. string.len(response) .. "]");
     -- not happend!
@@ -981,7 +984,7 @@ if (1) then
           while (X("S:UPNPInfo"..k) and p) do
             p, r = XML(r, k);
             if (p) then
-              -- fibaro:debug("  " .. k .. ": [" .. p .. "].");
+              -- fibaro:debug("  " .. k .. ": [" .. p .. "].");
               UPNPInfo[k] = p;
             end
           end X("E:UPNPInfo") -- while
