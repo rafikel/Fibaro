@@ -88,7 +88,7 @@ TV_SENDKEY_PORT = 55000
   pl.rafikel.fibaro.tv.samsung
 ]]--
 
-VERSION = "{0_2_2}"
+VERSION = "{0_3_0}"
 
 --[[
   HISTORY
