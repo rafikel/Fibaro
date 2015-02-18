@@ -1,6 +1,6 @@
 -- LIGHTS AUTOMATION
 -- LUA script by fibaro.rafikel.pl
--- version 1.4, 2014-02-27, license GPL
+-- version 1.5, 2015-02-19, license GPL
 
 -- Documentations available on Fibaro forum at this topics:
 -- http://forum.fibaro.com/viewtopic.php?t=2693 (EN)
@@ -201,7 +201,7 @@ while (tonumber(status)==200) do
               -- if slider changes eg. from scenes 
               elseif (sliderValue>0 and ((deviceValue==0 and deviceSeconds>2) or sliderValue>oldTimers[deviceId])) then 
                 -- if device type is dimmer 
-                if (deviceType=="dimmable_light") then 
+                if (deviceType=="com.fibaro.multilevelSwitch") then 
                   -- if default value for dimmer is defined 
                   if (sliderParams.defaultValue) then 
                     -- set dimmer value to that 
@@ -297,7 +297,7 @@ while (tonumber(status)==200) do
               
                 -- update dimmer level 
                 -- if defined "dimming time" parameter? 
-                elseif (sliderParams.dimmTime and deviceType=="dimmable_light") then 
+                elseif (sliderParams.dimmTime and deviceType=="com.fibaro.multilevelSwitch") then 
                   dimmTime = tonumber(sliderParams.dimmTime); 
                   -- if default starting value for dimmer device is defined? 
                   if (sliderParams.defaultValue) then 
@@ -360,8 +360,9 @@ while (tonumber(status)==200) do
               oldTimers[deviceId] = sliderValue; 
               
               -- select new value on the slider
-              new = clockValue(sliderValue);
-              old = fibaro:getValue(virtualData.id, sliderName);
+              new = tonumber(sliderValue);
+              --clockValue(sliderValue);
+              old = tonumber(fibaro:getValue(virtualData.id, sliderName));
               if (new ~= old) then
                 fibaro:call(virtualData.id, "setProperty", sliderName, new);
               end
@@ -377,8 +378,9 @@ while (tonumber(status)==200) do
   
   -- update main slider
   if (globalSliderId and globalSliderVId) then
-    old = fibaro:getValue(globalSliderVId, "ui.globalSlider.value");
-    new = clockValue(fastestTimer);
+    old = tonumber(fibaro:getValue(globalSliderVId, "ui.globalSlider.value"));
+    new = tonumber(fastestTimer);
+    --clockValue(fastestTimer);
     if (new ~= old) then
       fibaro:call(globalSliderVId, "setProperty", "ui.globalSlider.value", new);
     end
