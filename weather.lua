@@ -1,5 +1,7 @@
 -- OPEN WEATHER
 -- LUA script by fibaro.rafikel.pl
+-- version 1.1, 2015-06-12
+--   * fixed validating data
 -- version 1.0, 2014-06-23
 
 -- Access to HC2 admin account is neccessary for control 
@@ -198,24 +200,31 @@ else while tcp do
         if (dif >= f["before"] and dif <= f["seconds"]) then hours[h]["before"] = dif; end
         if (dif <= f["after"] and dif >= f["seconds"]) then hours[h]["after"] = dif; end
       end
-      -- check all values
-      if (
-        data.main == nil
-        or 
-        data.weather == nil
-        or
-        data.clouds == nil
-        or
-        data.wind == nil
-        or
-        data.rain == nil
-      ) then
+      -- check answer data
+      if (data.main == nil or data.weather == nil) then
         -- problem?
         printr(data, 0, "Data error");
         ok = false;
         break;
       end
-      -- grab forecast from data
+      -- complete full forecast
+      if (data.clouds == nil) then
+      	data.clouds = {
+      	  ["all"] = 0
+      	};
+      end
+      if (data.wind == nil) then
+      	data.wind = {
+      	  ["deg"] = 0,
+      	  ["speed"] = 0
+      	};
+      end
+      if (data.rain == nil) then
+      	data.rain = {
+      	  ["mm"] = 0
+      	};
+      end
+      -- create data object
       forecast[dif] = {
         -- temperature in st. C.
         ["temp"] = data.main.temp,
@@ -268,14 +277,14 @@ else while tcp do
             -- print data indexes for hour
             local t = k .. ": " .. v1 .. " -> " .. forecast[s][k] .. " -> " .. v2;
             fibaro:debug(string.rep(string.char(0xC2, 0xA0), 3) .. t .. ".");
-            fibaro:log(t);
+            fibaro:log(k .. ": " .. forecast[s][k]);
           end
         end
         -- printr(forecast[b], 0, b);
         -- printr(forecast[s], 0, s);
         -- printr(forecast[a], 0, a);
       end -- for all hours
-	-- something not ok
+	  -- something not ok
     else
       printr(hours, 0, "Hours");
       printr(forecast, 0, "Forecast");
